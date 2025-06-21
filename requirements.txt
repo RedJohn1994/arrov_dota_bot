@@ -1,2 +1,3 @@
-easyocr
 pyautogui
+mss
+cv2
