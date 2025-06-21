@@ -117,8 +117,8 @@ def detect_dominant_color(img, region: tuple) -> str | None:
     red_mask = cv2.bitwise_or(red_mask1, red_mask2)
 
     # Маска для ярко-фиолетового
-    lower_violet = np.array([130, 100, 100])
-    upper_violet = np.array([160, 255, 255])
+    lower_violet = np.array([135, 50, 30])
+    upper_violet = np.array([150, 255, 255])
     violet_mask = cv2.inRange(hsv, lower_violet, upper_violet)
 
     lower_yellow_ = np.array([20, 100, 100])
@@ -144,21 +144,25 @@ def detect_dominant_color(img, region: tuple) -> str | None:
     else:
         return None
 
+if __name__ == '__main__':
+    # for test
 
-# Пример использования
-if __name__ == "__main__":
-    # coords = find_template_coordinates("card_inside.png", "template_images/talante_attrs_template.png")
-    coords = find_template_coordinates("card_inside.png", "template_images/fate_attrs_template.png")
-    print("Координаты:", coords)
+    img_path = find_and_create_card_img("images/left_yellow_T6.png")
+    img = cv2.imread(img_path)
+    left_card_color = detect_dominant_color(img, (55, 45, 94, 62))
 
+    coords = find_template_coordinates(img_path, "template_images/fate_attrs_template.png")
     left_ = coords["top_left"]
     right_ = coords["bottom_right"]
     left_ = right_[0] + 5, left_[1]
     right_ = right_[0] + 35, right_[1]
-    result = detect_dominant_color("card_inside.png", left_ + right_)
-    print(result)
+    fate = detect_dominant_color(img, left_ + right_)
+    print(fate)
 
-    left_ = 55, 45
-    right_ = 94, 62
-    result = detect_dominant_color("card_inside.png", left_ + right_)
-    print(result)
+    coords = find_template_coordinates(img_path, "template_images/talante_attrs_template.png")
+    left_ = coords["top_left"]
+    right_ = coords["bottom_right"]
+    left_ = right_[0] + 5, left_[1]
+    right_ = right_[0] + 35, right_[1]
+    talante = detect_dominant_color(img, left_ + right_)
+    print(talante)

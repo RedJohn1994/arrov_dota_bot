@@ -22,8 +22,8 @@ MOUSEEVENTF_RIGHTUP = 0x0010
 
 # Координаты для выбора предметов
 ITEM_POSITIONS = [
-    (1317, 429),  # Точка 1
-    (2000, 450),  # Точка 2
+    (1030, 700),  # Точка 1
+    (1777, 700),  # Точка 2
     (2152, 295)  # Точка закрытия
 ]
 
@@ -118,7 +118,7 @@ def analyze_color_with_delay(x, y, delay=5):
     return None
 
 
-def move_mouse_to(x, y, duration=0.5, delay_after=0.1):
+def move_mouse_to(x, y, duration=0.5, delay_after=0.5):
     pyautogui.moveTo(x, y, duration=duration)
     time.sleep(delay_after)
 
@@ -171,15 +171,9 @@ def select_items():
     # ]
     # images = itertools.cycle(images)
 
-    while target_items_selected < 4 and datetime.now() - start_time < timeout:
-        round_count += 1
-        time_remaining = timeout - (datetime.now() - start_time)
-        print(f"\n--- Раунд {round_count} (осталось: {time_remaining}) ---")
+    while datetime.now() - start_time < timeout:
+        time.sleep(1)
 
-        # Ожидание перед выбором
-        wait_time = 8 if round_count == 1 else 10
-        print(f"Ожидание {wait_time} секунд перед анализом...")
-        time.sleep(wait_time)
         msg = ""
         try:
             left_fate_color, left_talantes_color, right_fate_color, right_talantes_color = [None] * 4
@@ -187,7 +181,13 @@ def select_items():
 
             move_mouse_to(1030, 700) # left card
             img_path = find_and_create_card_img(grabber.screenshot())
-            # img_path = find_and_create_card_img(next(images))
+            if not img_path:
+                continue
+
+            round_count += 1
+            time_remaining = timeout - (datetime.now() - start_time)
+            print(f"\n--- Раунд {round_count} (осталось: {time_remaining}) ---")
+
             img = cv2.imread(img_path)
             left_card_color = detect_dominant_color(img, CARD_COLOR_REGION)
             if left_card_color == "red":
@@ -201,13 +201,17 @@ def select_items():
 
             if left_fate_color == "violet":
                 left_card_priority_points += 2
+                print("Слева violet судьба")
             elif left_fate_color == "red":
                 left_card_priority_points += 1
+                print("Слева red судьба")
 
             if left_talantes_color == "violet":
                 left_card_priority_points += 2
+                print("Слева violet таланты")
             elif left_talantes_color == "red":
                 left_card_priority_points += 1
+                print("Слева red таланты")
 
             move_mouse_to(1777, 700) # right card
             img_path = find_and_create_card_img(grabber.screenshot())
@@ -222,15 +226,19 @@ def select_items():
                 right_fate_color = get_yellow_card_attribute_colors(img_path, img)
             else:
                 pass
+
             if right_fate_color == "violet":
                 right_card_priority_points += 2
+                print("Справа violet судьба")
             elif right_fate_color == "red":
                 right_card_priority_points += 1
+                print("Справа red судьба")
 
             if right_talantes_color == "violet":
                 right_card_priority_points += 2
+                print("Справа violet таланты")
             elif right_talantes_color == "red":
-                right_card_priority_points += 1
+                print("Справа red таланты")
 
             print(msg if msg else "Фигня слева и справа")
 
