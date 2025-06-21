@@ -200,14 +200,14 @@ def select_items():
                 pass
 
             if left_fate_color == "violet":
-                left_card_priority_points += 2
+                left_card_priority_points += 3
                 print("Слева violet судьба")
             elif left_fate_color == "red":
                 left_card_priority_points += 1
                 print("Слева red судьба")
 
             if left_talantes_color == "violet":
-                left_card_priority_points += 2
+                left_card_priority_points += 3
                 print("Слева violet таланты")
             elif left_talantes_color == "red":
                 left_card_priority_points += 1
