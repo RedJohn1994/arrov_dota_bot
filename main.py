@@ -228,16 +228,17 @@ def select_items():
                 pass
 
             if right_fate_color == "violet":
-                right_card_priority_points += 2
+                right_card_priority_points += 3
                 print("Справа violet судьба")
             elif right_fate_color == "red":
                 right_card_priority_points += 1
                 print("Справа red судьба")
 
             if right_talantes_color == "violet":
-                right_card_priority_points += 2
+                right_card_priority_points += 3
                 print("Справа violet таланты")
             elif right_talantes_color == "red":
+                right_card_priority_points += 1
                 print("Справа red таланты")
 
             print(msg if msg else "Фигня слева и справа")
