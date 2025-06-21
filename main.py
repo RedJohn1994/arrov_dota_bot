@@ -1,8 +1,17 @@
+import itertools
+import random
+
+import cv2
 import pyautogui
 import time
 import sys
 import ctypes
 from datetime import datetime, timedelta
+
+from screen_grabber import Grabber
+from simple_ocr_utils import find_and_create_card_img, detect_dominant_color, find_template_coordinates
+
+ATTRIBUTE_COLORS_TO_CHOOSE = ["red", "violet"]
 
 # Глобальные настройки надежности
 pyautogui.PAUSE = 0.15
@@ -21,6 +30,10 @@ ITEM_POSITIONS = [
     (2152, 295)  # Точка закрытия
 ]
 
+# регион для определения цвета предмета карточки
+CARD_COLOR_REGION = (55, 45, 94, 62)
+
+grabber = Grabber()
 
 def send_mouse_event(x, y, dwFlags, button='left'):
     """Отправляет низкоуровневое событие мыши"""
@@ -108,6 +121,41 @@ def analyze_color_with_delay(x, y, delay=5):
     return None
 
 
+def move_mouse_to(x, y, duration=0.5, delay_after=0.1):
+    pyautogui.moveTo(x, y, duration=duration)
+    time.sleep(delay_after)
+
+
+def get_red_card_attribute_colors(image_path: str, img):
+    coords = find_template_coordinates(image_path, "template_images/fate_attrs_template.png")
+    left_ = coords["top_left"]
+    right_ = coords["bottom_right"]
+    left_ = right_[0] + 5, left_[1]
+    right_ = right_[0] + 35, right_[1]
+    fate = detect_dominant_color(img, left_ + right_)
+    if fate not in ATTRIBUTE_COLORS_TO_CHOOSE:
+        fate = None
+
+    coords = find_template_coordinates(image_path, "template_images/talante_attrs_template.png")
+    left_ = coords["top_left"]
+    right_ = coords["bottom_right"]
+    left_ = right_[0] + 5, left_[1]
+    right_ = right_[0] + 35, right_[1]
+    talante = detect_dominant_color(img, left_ + right_)
+    if talante not in ATTRIBUTE_COLORS_TO_CHOOSE:
+        talante = None
+
+    return fate, talante
+
+def get_yellow_card_attribute_colors(image_path: str, img):
+    coords = find_template_coordinates(image_path, "template_images/fate_attrs_template.png")
+    left_ = coords["top_left"]
+    right_ = coords["bottom_right"]
+    left_ = right_[0] + 5, left_[1]
+    right_ = right_[0] + 35, right_[1]
+    fate = detect_dominant_color(img, left_ + right_)
+    return fate
+
 def select_items():
     """Выбирает красные или желтые предметы"""
     target_items_selected = 0
@@ -118,6 +166,14 @@ def select_items():
     print("\n--- Начало выбора предметов ---")
     print(f"Таймаут установлен: {timeout}")
 
+    # images = [
+    #     "images/1_left_yellow.png",
+    #     "images/2_right_yellow.png",
+    #     "images/left_red_1.png",
+    #     "images/right_red_2.png",
+    # ]
+    # images = itertools.cycle(images)
+
     while target_items_selected < 4 and datetime.now() - start_time < timeout:
         round_count += 1
         time_remaining = timeout - (datetime.now() - start_time)
@@ -127,37 +183,106 @@ def select_items():
         wait_time = 8 if round_count == 1 else 10
         print(f"Ожидание {wait_time} секунд перед анализом...")
         time.sleep(wait_time)
-
+        msg = ""
         try:
-            # Анализ цветов с задержкой 5 секунд на точку
-            print("\nАнализ точки 1:")
-            point1_color_type = analyze_color_with_delay(ITEM_POSITIONS[0][0], ITEM_POSITIONS[0][1], 5)
+            left_fate_color, left_talantes_color, right_fate_color, right_talantes_color = [None] * 4
+            left_card_priority_points, right_card_priority_points = 0, 0
 
-            print("\nАнализ точки 2:")
-            point2_color_type = analyze_color_with_delay(ITEM_POSITIONS[1][0], ITEM_POSITIONS[1][1], 5)
+            move_mouse_to(1030, 700) # left card
+            img_path = find_and_create_card_img(grabber.screenshot())
+            # img_path = find_and_create_card_img(next(images))
+            img = cv2.imread(img_path)
+            left_card_color = detect_dominant_color(img, CARD_COLOR_REGION)
+            if left_card_color == "red":
+                msg = "Слева красный предмет"
+                left_fate_color, left_talantes_color = get_red_card_attribute_colors(img_path, img)
+            elif left_card_color == "yellow":
+                msg = "Слева жёлтый предмет"
+                left_fate_color = get_yellow_card_attribute_colors(img_path, img)
+            else:
+                pass
 
-            print(f"\nРезультаты анализа: Точка1={point1_color_type}, Точка2={point2_color_type}")
+            if left_fate_color == "violet":
+                left_card_priority_points += 2
+            elif left_fate_color == "red":
+                left_card_priority_points += 1
 
-            # Логика выбора на основе анализа цвета
-            if point1_color_type and point2_color_type:
-                # Если обе точки имеют целевой цвет - выбираем первую
+            if left_talantes_color == "violet":
+                left_card_priority_points += 2
+            elif left_talantes_color == "red":
+                left_card_priority_points += 1
+
+            move_mouse_to(1777, 700) # right card
+            img_path = find_and_create_card_img(grabber.screenshot())
+            # img_path = find_and_create_card_img(next(images))
+            img = cv2.imread(img_path)
+            right_card_color = detect_dominant_color(img, CARD_COLOR_REGION)
+            if right_card_color == "red":
+                msg += ", Справа красный предмет"
+                right_fate_color, right_talantes_color = get_red_card_attribute_colors(img_path, img)
+            elif right_card_color == "yellow":
+                msg += ", Справа жёлтый предмет"
+                right_fate_color = get_yellow_card_attribute_colors(img_path, img)
+            else:
+                pass
+            if right_fate_color == "violet":
+                right_card_priority_points += 2
+            elif right_fate_color == "red":
+                right_card_priority_points += 1
+
+            if right_talantes_color == "violet":
+                right_card_priority_points += 2
+            elif right_talantes_color == "red":
+                right_card_priority_points += 1
+
+            print(msg if msg else "Фигня слева и справа")
+
+            print(f"Приоритет лево/право: {left_card_priority_points}/{right_card_priority_points}")
+            if left_card_priority_points == 0 and right_card_priority_points == 0:
+                print("Фигня, закрываем")
+                robust_click(ITEM_POSITIONS[2][0], ITEM_POSITIONS[2][1], button='left')
+            elif left_card_priority_points == right_card_priority_points:
+                print(f"Рейтинг одинаков, берём левую")
                 robust_click(ITEM_POSITIONS[0][0], ITEM_POSITIONS[0][1], button='left')
                 target_items_selected += 1
-                print(f"Выбрана точка 1 (оба целевые) - выбрано предметов: {target_items_selected}")
-            elif point1_color_type:
-                # Если целевой цвет только в первой точке
+            elif left_card_priority_points > right_card_priority_points:
+                print("Берём левую")
                 robust_click(ITEM_POSITIONS[0][0], ITEM_POSITIONS[0][1], button='left')
                 target_items_selected += 1
-                print(f"Выбрана точка 1 - выбрано предметов: {target_items_selected}")
-            elif point2_color_type:
-                # Если целевой цвет только во второй точке
+            else:
+                print("Берём правую")
                 robust_click(ITEM_POSITIONS[1][0], ITEM_POSITIONS[1][1], button='left')
                 target_items_selected += 1
-                print(f"Выбрана точка 2 - выбрано предметов: {target_items_selected}")
-            else:
-                # Если нет целевых цветов - закрываем выбор
-                robust_click(ITEM_POSITIONS[2][0], ITEM_POSITIONS[2][1], button='left')
-                print("Целевые цвета не найдены, закрываем выбор")
+
+            # # Анализ цветов с задержкой 5 секунд на точку
+            # print("\nАнализ точки 1:")
+            # point1_color_type = analyze_color_with_delay(ITEM_POSITIONS[0][0], ITEM_POSITIONS[0][1], 5)
+            #
+            # print("\nАнализ точки 2:")
+            # point2_color_type = analyze_color_with_delay(ITEM_POSITIONS[1][0], ITEM_POSITIONS[1][1], 5)
+            #
+            # print(f"\nРезультаты анализа: Точка1={point1_color_type}, Точка2={point2_color_type}")
+            #
+            # # Логика выбора на основе анализа цвета
+            # if point1_color_type and point2_color_type:
+            #     # Если обе точки имеют целевой цвет - выбираем первую
+            #     robust_click(ITEM_POSITIONS[0][0], ITEM_POSITIONS[0][1], button='left')
+            #     target_items_selected += 1
+            #     print(f"Выбрана точка 1 (оба целевые) - выбрано предметов: {target_items_selected}")
+            # elif point1_color_type:
+            #     # Если целевой цвет только в первой точке
+            #     robust_click(ITEM_POSITIONS[0][0], ITEM_POSITIONS[0][1], button='left')
+            #     target_items_selected += 1
+            #     print(f"Выбрана точка 1 - выбрано предметов: {target_items_selected}")
+            # elif point2_color_type:
+            #     # Если целевой цвет только во второй точке
+            #     robust_click(ITEM_POSITIONS[1][0], ITEM_POSITIONS[1][1], button='left')
+            #     target_items_selected += 1
+            #     print(f"Выбрана точка 2 - выбрано предметов: {target_items_selected}")
+            # else:
+            #     # Если нет целевых цветов - закрываем выбор
+            #     robust_click(ITEM_POSITIONS[2][0], ITEM_POSITIONS[2][1], button='left')
+            #     print("Целевые цвета не найдены, закрываем выбор")
 
         except Exception as e:
             print(f"Ошибка при анализе цвета: {str(e)}")
@@ -181,56 +306,56 @@ def run_game_session():
         print("\n" + "=" * 50)
         print("НАЧАЛО НОВОЙ ИГРОВОЙ СЕССИИ")
         print("=" * 50 + "\n")
-        print("Старт через 600 секунд...")
-        time.sleep(600)
-
-        # Шаг 1.2: Открываем магазин
-        robust_click(2208, 1398, button='left', duration=0.5, delay_before=1)
-        print("Шаг 1.2: Открываем магазин")
-
-        # Шаг 1.3: Покупаем топор
-        robust_click(2390, 449, button='right', duration=0.5, delay_before=1.2)
-        print("Шаг 1.3: Покупаем топор")
-
-        # Шаг 1.4: Закрываем магазин
-        robust_click(2208, 1398, button='left', duration=0.5, delay_before=1.5)
-        print("Шаг 1.4: Закрываем магазин")
-
-        # Шаг 1.5: Клик по башне на мини-карте (особое внимание!)
-        robust_click(80, 1207, button='left', duration=0.5, delay_before=3, retries=7)
-        print("Шаг 1.5: Башня на мини карте")
-
-        # Шаг 1.6: Атака башни
-        robust_click(1906, 860, button='right', duration=0.5, delay_before=1.8)
-        print("Шаг 1.6: Атака башни")
-
-        # Шаг 2.1: Ожидание 15 минут
-        print("Ожидание 5 минут...")
-        time.sleep(300)
-
-        # Шаг 2.2: Атака трона
-        robust_click(1527, 785, button='right', duration=0.5, delay_before=1)
-        print("Шаг 2.2: Атака трона")
-
-        # Шаг 2.3: Ожидание 3 минуты
-        print("Ожидание 1 минута...")
-        time.sleep(60)
-
-        # Шаг 2.4: Подтверждение игры
-        robust_click(1337, 1090, button='left', duration=0.5, delay_before=1.5)
-        print("Шаг 2.4: Подтверждение игры")
-
-        # Шаг 3.1: Поиск арены (особое внимание!)
-        robust_click(152, 1267, button='left', duration=0.6, delay_before=2, retries=7)
-        print("Шаг 3.1: Левый клик на (152, 1267)")
-
-        # Шаг 3.2: Координаты MPC Арены
-        robust_click(1566, 767, button='left', duration=0.8, delay_before=1)
-        print("Шаг 3.2: МПС Арены")
-
-        # Шаг 3.3: Подтверждение входа
-        robust_click(1824, 897, button='left', duration=0.3, delay_before=1)
-        print("Шаг 3.3: Подтверждение входа")
+        # print("Старт через 600 секунд...")
+        # time.sleep(600)
+        #
+        # # Шаг 1.2: Открываем магазин
+        # robust_click(2208, 1398, button='left', duration=0.5, delay_before=1)
+        # print("Шаг 1.2: Открываем магазин")
+        #
+        # # Шаг 1.3: Покупаем топор
+        # robust_click(2390, 449, button='right', duration=0.5, delay_before=1.2)
+        # print("Шаг 1.3: Покупаем топор")
+        #
+        # # Шаг 1.4: Закрываем магазин
+        # robust_click(2208, 1398, button='left', duration=0.5, delay_before=1.5)
+        # print("Шаг 1.4: Закрываем магазин")
+        #
+        # # Шаг 1.5: Клик по башне на мини-карте (особое внимание!)
+        # robust_click(80, 1207, button='left', duration=0.5, delay_before=3, retries=7)
+        # print("Шаг 1.5: Башня на мини карте")
+        #
+        # # Шаг 1.6: Атака башни
+        # robust_click(1906, 860, button='right', duration=0.5, delay_before=1.8)
+        # print("Шаг 1.6: Атака башни")
+        #
+        # # Шаг 2.1: Ожидание 15 минут
+        # print("Ожидание 5 минут...")
+        # time.sleep(300)
+        #
+        # # Шаг 2.2: Атака трона
+        # robust_click(1527, 785, button='right', duration=0.5, delay_before=1)
+        # print("Шаг 2.2: Атака трона")
+        #
+        # # Шаг 2.3: Ожидание 3 минуты
+        # print("Ожидание 1 минута...")
+        # time.sleep(60)
+        #
+        # # Шаг 2.4: Подтверждение игры
+        # robust_click(1337, 1090, button='left', duration=0.5, delay_before=1.5)
+        # print("Шаг 2.4: Подтверждение игры")
+        #
+        # # Шаг 3.1: Поиск арены (особое внимание!)
+        # robust_click(152, 1267, button='left', duration=0.6, delay_before=2, retries=7)
+        # print("Шаг 3.1: Левый клик на (152, 1267)")
+        #
+        # # Шаг 3.2: Координаты MPC Арены
+        # robust_click(1566, 767, button='left', duration=0.8, delay_before=1)
+        # print("Шаг 3.2: МПС Арены")
+        #
+        # # Шаг 3.3: Подтверждение входа
+        # robust_click(1824, 897, button='left', duration=0.3, delay_before=1)
+        # print("Шаг 3.3: Подтверждение входа")
 
         # Шаг 3.4-3.7: Интеллектуальный выбор предметов
         selected_count = select_items()
